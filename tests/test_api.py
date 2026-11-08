@@ -1,4 +1,3 @@
-
 from io import BytesIO
 from urllib.parse import urlsplit
 from wsgiref.util import setup_testing_defaults
@@ -6,6 +5,21 @@ from wsgiref.util import setup_testing_defaults
 import pytest
 
 from src.api import app
+
+
+def add_request_headers(environ, headers):
+    """Добавляет HTTP-заголовки в окружение WSGI."""
+    for name, value in (headers or {}).items():
+        key = "HTTP_" + name.upper().replace("-", "_")
+        if name.lower() == "content-type":
+            key = "CONTENT_TYPE"
+        environ[key] = value
+
+
+def close_response(response_body):
+    """Закрывает ответ WSGI, если он поддерживает закрытие."""
+    if hasattr(response_body, "close"):
+        response_body.close()
 
 
 def send_request(method, path, headers=None, body=None):
@@ -20,12 +34,7 @@ def send_request(method, path, headers=None, body=None):
     environ["QUERY_STRING"] = url.query
     environ["wsgi.input"] = BytesIO(payload)
     environ["CONTENT_LENGTH"] = str(len(payload))
-
-    for name, value in (headers or {}).items():
-        key = "HTTP_" + name.upper().replace("-", "_")
-        if name.lower() == "content-type":
-            key = "CONTENT_TYPE"
-        environ[key] = value
+    add_request_headers(environ, headers)
 
     result = {}
 
@@ -36,9 +45,7 @@ def send_request(method, path, headers=None, body=None):
 
     response_body = app(environ, start_response)
     result["body"] = b"".join(response_body)
-
-    if hasattr(response_body, "close"):
-        response_body.close()
+    close_response(response_body)
 
     return result
 

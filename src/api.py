@@ -9,12 +9,10 @@ from time import monotonic, time
 from bottle import Bottle, HTTPResponse, request
 
 from src.models import Feedback, Prompt, Session
-from src.storage import FileStorage
-
+from src.pony_storage import PonyStorage
 
 app = Bottle()
-storage = FileStorage()
-
+storage = PonyStorage()
 REPORT_WINDOW_SECONDS = 9 * 60
 MILLISECONDS_PER_SECOND = 1000
 
@@ -25,10 +23,8 @@ def validate_headers():
     if request.method in {"POST", "PUT", "PATCH"}:
         if request.get_header("Content-Type") != "text/json":
             raise HTTPResponse(status=415)
-
     if request.get_header("Accept") != "text/json":
         raise HTTPResponse(status=406)
-
     if request.get_header("Accept-Language") != "ru-RU":
         raise HTTPResponse(status=406)
 
@@ -61,10 +57,8 @@ def read_json_body():
         data = json.loads(request.body.read().decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError):
         raise HTTPResponse(status=400) from None
-
     if not isinstance(data, dict):
         raise HTTPResponse(status=400)
-
     return data
 
 
@@ -73,11 +67,8 @@ def run_conversion(uid, parameter):
     source = Path(parameter)
     output = storage.data_dir / f"prompt_{uid}.docx"
     command = [
-        sys.executable,
-        "-m",
-        "src.cli",
-        str(source),
-        str(output),
+        sys.executable, "-m", "src.cli",
+        str(source), str(output),
     ]
     return subprocess.run(
         command,
@@ -107,16 +98,13 @@ def process_prompt(uid, parameter, test_mode):
     """Выполняет преобразование или пропускает его."""
     if test_mode == "1":
         return "skipped", "test", "", 0
-
     started = monotonic()
     result = run_conversion(uid, parameter)
     duration = int(
         (monotonic() - started) * MILLISECONDS_PER_SECOND
     )
-
     if result.returncode != 0:
         return "", "error", result.stderr, duration
-
     output = storage.data_dir / f"prompt_{uid}.docx"
     return str(output), "success", "", duration
 
@@ -125,8 +113,7 @@ def get_recent_prompts():
     """Возвращает запросы за последние девять минут."""
     cutoff = int(time()) - REPORT_WINDOW_SECONDS
     return [
-        prompt
-        for prompt in storage.query("prompt")
+        prompt for prompt in storage.query("prompt")
         if prompt.datetime >= cutoff
     ]
 
@@ -152,14 +139,12 @@ def build_report():
     }
     feedbacks = storage.query("feedback")
     rows = []
-
     for prompt in get_recent_prompts():
         session = sessions.get(prompt.session)
         if session is not None:
             rows.extend(
                 build_report_rows(prompt, session, feedbacks)
             )
-
     return rows
 
 
@@ -169,14 +154,11 @@ def session_add(uid):
     locale = request.query.get("locale")
     if not locale:
         raise HTTPResponse(status=400)
-
     session = Session(uid, int(time()), locale)
-
     try:
         storage.add("session", session)
     except ValueError:
         raise HTTPResponse(status=409) from None
-
     return json_response(asdict(session))
 
 
@@ -184,12 +166,10 @@ def session_add(uid):
 def session_prune():
     """Удаляет запись Session."""
     data = read_json_body()
-
     try:
         uid = int(data["uid"])
     except (TypeError, ValueError, KeyError):
         raise HTTPResponse(status=400) from None
-
     deleted = storage.prune("session", uid)
     return json_response({"deleted": deleted})
 
@@ -199,10 +179,8 @@ def session_query():
     """Ищет запись Session."""
     uid = get_uid()
     session = storage.query("session", uid)
-
     if session is None:
         raise HTTPResponse(status=404)
-
     return json_response(asdict(session))
 
 
@@ -211,17 +189,14 @@ def session_update():
     """Изменяет запись Session."""
     uid = get_uid()
     locale = request.query.get("locale")
-
     if not locale:
         raise HTTPResponse(status=400)
-
     try:
         session = storage.update(
             "session", uid, {"locale": locale}
         )
     except ValueError:
         raise HTTPResponse(status=404) from None
-
     return json_response(asdict(session))
 
 
@@ -231,23 +206,22 @@ def prompt_add(uid):
     session_uid = get_query_int("session")
     parameter = request.query.get("parameter")
     test_mode = request.query.get("test_mode", "0")
-
     if not parameter or test_mode not in {"0", "1"}:
         raise HTTPResponse(status=400)
-
     if storage.query("session", session_uid) is None:
         raise HTTPResponse(status=404)
-
     if storage.query("prompt", uid) is not None:
         raise HTTPResponse(status=409)
-
     response, status, error, duration = process_prompt(
         uid, parameter, test_mode
     )
-    prompt = Prompt(uid, int(time()), parameter, session_uid)
+    prompt = Prompt(
+        uid, int(time()), parameter, session_uid
+    )
     storage.add("prompt", prompt)
-    create_feedback(uid, response, status, error, duration)
-
+    create_feedback(
+        uid, response, status, error, duration
+    )
     return json_response(asdict(prompt))
 
 
@@ -255,12 +229,10 @@ def prompt_add(uid):
 def prompt_prune():
     """Удаляет запись Prompt."""
     data = read_json_body()
-
     try:
         uid = int(data["uid"])
     except (KeyError, TypeError, ValueError):
         raise HTTPResponse(status=400) from None
-
     deleted = storage.prune("prompt", uid)
     return json_response({"deleted": deleted})
 
@@ -282,17 +254,14 @@ def prompt_update():
     """Изменяет параметр существующего Prompt."""
     uid = get_uid()
     parameter = request.query.get("parameter")
-
     if not parameter:
         raise HTTPResponse(status=400)
-
     try:
         prompt = storage.update(
             "prompt", uid, {"parameter": parameter}
         )
     except ValueError:
         raise HTTPResponse(status=404) from None
-
     return json_response(asdict(prompt))
 
 
@@ -315,4 +284,8 @@ def report_query():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=8080, debug=True)
+    app.run(
+        host="127.0.0.1",
+        port=8080,
+        debug=True,
+    )

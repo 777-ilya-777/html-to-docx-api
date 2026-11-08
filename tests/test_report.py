@@ -1,6 +1,5 @@
 
 import json
-from dataclasses import asdict
 
 import pytest
 

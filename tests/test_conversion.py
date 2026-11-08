@@ -1,4 +1,3 @@
-
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -8,31 +7,25 @@ from src import api
 
 
 @pytest.mark.parametrize(
-    ("returncode", "stderr", "expected_status"),
+    ("returncode", "stderr", "expected_status", "expected_error"),
     [
-        (0, "", "success"),
-        (1, "Conversion failed", "error"),
+        (0, "", "success", ""),
+        (1, "Conversion failed", "error", "Conversion failed"),
     ],
 )
 def test_process_prompt(
-    monkeypatch,
-    tmp_path,
-    returncode,
-    stderr,
-    expected_status,
+    monkeypatch, tmp_path, returncode, stderr, expected_status, expected_error
 ):
     """Проверяет успешное и ошибочное преобразование."""
     result = SimpleNamespace(
         returncode=returncode,
         stderr=stderr,
     )
-
     monkeypatch.setattr(
         api,
         "run_conversion",
         lambda uid, parameter: result,
     )
-
     monkeypatch.setattr(
         api.storage,
         "data_dir",
@@ -45,13 +38,12 @@ def test_process_prompt(
         "0",
     )
 
-    assert status == expected_status
+    expected_responses = {
+        "success": str(tmp_path / "prompt_101.docx"),
+        "error": "",
+    }
+
+    assert (status, error) == (expected_status, expected_error)
     assert isinstance(duration, int)
     assert duration >= 0
-
-    if returncode == 0:
-        assert response == str(tmp_path / "prompt_101.docx")
-        assert error == ""
-    else:
-        assert response == ""
-        assert error == stderr
+    assert response == expected_responses[expected_status]

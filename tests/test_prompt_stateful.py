@@ -1,4 +1,3 @@
-
 import json
 import tempfile
 from urllib.parse import urlencode
@@ -85,6 +84,14 @@ class PromptStateMachine(RuleBasedStateMachine):
         if expected == 200:
             self.prompts[uid] = (session, parameter)
 
+    def expected_prompts_for_session(self, session):
+        """Возвращает ожидаемые запросы выбранного сеанса."""
+        return {
+            uid: parameter
+            for uid, (session_uid, parameter) in self.prompts.items()
+            if session_uid == session
+        }
+
     @rule(session=UIDS)
     def query_prompts(self, session):
         """Проверяет поиск запросов по сеансу."""
@@ -97,11 +104,7 @@ class PromptStateMachine(RuleBasedStateMachine):
             item["uid"]: item["parameter"]
             for item in actual
         }
-        expected_data = {
-            uid: parameter
-            for uid, (session_uid, parameter) in self.prompts.items()
-            if session_uid == session
-        }
+        expected_data = self.expected_prompts_for_session(session)
         assert actual_data == expected_data
 
     @rule(uid=UIDS, parameter=PARAMETERS)
