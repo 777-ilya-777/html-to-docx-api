@@ -16,6 +16,7 @@ HEADERS = {
 }
 
 CURRENT_TIME = 2_000_000_000
+HTTP_OK = 200
 
 
 @pytest.fixture
@@ -49,7 +50,7 @@ def query_report():
         "/public/api/report/query",
         HEADERS,
     )
-    assert result["status"] == 200
+    assert result["status"] == HTTP_OK
     return json.loads(result["body"])
 
 

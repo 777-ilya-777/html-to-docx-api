@@ -15,6 +15,11 @@ HEADERS = {
     "Accept-Language": "ru-RU",
 }
 
+HTTP_OK = 200
+FEEDBACK_UID = 100
+PROMPT_UID = 10
+EXPECTED_FEEDBACK_COUNT = 1
+
 
 @pytest.fixture(autouse=True)
 def isolated_storage(monkeypatch, tmp_path):
@@ -106,12 +111,12 @@ def test_header_validation(method, headers, expected):
 def test_feedback_query():
     """Проверяет получение результата обработки Prompt."""
     feedback = Feedback(
-        uid=100,
+        uid=FEEDBACK_UID,
         datetime=1000,
         response="skipped",
         status="test",
         error="",
-        prompt=10,
+        prompt=PROMPT_UID,
         cache_hit=0,
         duration=0,
     )
@@ -119,15 +124,15 @@ def test_feedback_query():
 
     result = send_request(
         "POST",
-        "/public/api/feedback/query/10",
+        f"/public/api/feedback/query/{PROMPT_UID}",
         HEADERS,
     )
 
-    assert result["status"] == 200
+    assert result["status"] == HTTP_OK
     data = json.loads(result["body"])
-    assert len(data) == 1
-    assert data[0]["uid"] == 100
-    assert data[0]["prompt"] == 10
+    assert len(data) == EXPECTED_FEEDBACK_COUNT
+    assert data[0]["uid"] == FEEDBACK_UID
+    assert data[0]["prompt"] == PROMPT_UID
 
 
 def test_feedback_query_empty():
@@ -137,5 +142,5 @@ def test_feedback_query_empty():
         "/public/api/feedback/query/999",
         HEADERS,
     )
-    assert result["status"] == 200
+    assert result["status"] == HTTP_OK
     assert json.loads(result["body"]) == []

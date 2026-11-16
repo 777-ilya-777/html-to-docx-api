@@ -1,4 +1,4 @@
-import json
+﻿import json
 import tempfile
 from urllib.parse import urlencode
 
@@ -19,6 +19,8 @@ HEADERS = {
     "Accept": "text/json",
     "Accept-Language": "ru-RU",
 }
+
+HTTP_OK = 200
 
 UIDS = st.integers(min_value=1, max_value=10)
 PARAMETERS = st.sampled_from([
@@ -59,7 +61,7 @@ class PromptStateMachine(RuleBasedStateMachine):
         result = self.send("PUT", path, {"locale": "ru-RU"})
         expected = 409 if uid in self.sessions else 200
         assert result["status"] == expected
-        if expected == 200:
+        if expected == HTTP_OK:
             self.sessions.add(uid)
 
     @rule(uid=UIDS, session=UIDS, parameter=PARAMETERS)
@@ -81,7 +83,7 @@ class PromptStateMachine(RuleBasedStateMachine):
             expected = 200
 
         assert result["status"] == expected
-        if expected == 200:
+        if expected == HTTP_OK:
             self.prompts[uid] = (session, parameter)
 
     def expected_prompts_for_session(self, session):
@@ -97,7 +99,7 @@ class PromptStateMachine(RuleBasedStateMachine):
         """Проверяет поиск запросов по сеансу."""
         path = f"/public/api/prompt/query/{session}"
         result = self.send("POST", path)
-        assert result["status"] == 200
+        assert result["status"] == HTTP_OK
 
         actual = json.loads(result["body"])
         actual_data = {
@@ -118,7 +120,7 @@ class PromptStateMachine(RuleBasedStateMachine):
         expected = 200 if uid in self.prompts else 404
         assert result["status"] == expected
 
-        if expected == 200:
+        if expected == HTTP_OK:
             session, _ = self.prompts[uid]
             self.prompts[uid] = (session, parameter)
 
@@ -130,7 +132,7 @@ class PromptStateMachine(RuleBasedStateMachine):
             "/public/api/prompt/prune",
             body={"uid": uid},
         )
-        assert result["status"] == 200
+        assert result["status"] == HTTP_OK
 
         actual = json.loads(result["body"])
         expected = uid in self.prompts
@@ -154,3 +156,4 @@ TestPromptStateMachine.settings = settings(
     stateful_step_count=20,
     deadline=None,
 )
+

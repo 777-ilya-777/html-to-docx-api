@@ -21,6 +21,10 @@ HEADERS = {
     "Accept-Language": "ru-RU",
 }
 
+HTTP_OK = 200
+HTTP_NOT_FOUND = 404
+HTTP_CONFLICT = 409
+
 
 class SessionStateMachine(RuleBasedStateMachine):
     """Проверяет последовательности операций с Session."""
@@ -53,9 +57,11 @@ class SessionStateMachine(RuleBasedStateMachine):
         """Проверяет создание Session."""
         path = f"/public/api/session/add/{uid}"
         result = self.send("PUT", path, {"locale": locale})
-        expected = 409 if uid in self.sessions else 200
+        expected = (
+            HTTP_CONFLICT if uid in self.sessions else HTTP_OK
+        )
         assert result["status"] == expected
-        if expected == 200:
+        if expected == HTTP_OK:
             self.sessions[uid] = locale
 
     @rule(uid=st.integers(min_value=1, max_value=20))
@@ -66,9 +72,11 @@ class SessionStateMachine(RuleBasedStateMachine):
             "/public/api/session/query",
             {"uid": uid},
         )
-        expected = 200 if uid in self.sessions else 404
+        expected = (
+            HTTP_OK if uid in self.sessions else HTTP_NOT_FOUND
+        )
         assert result["status"] == expected
-        if expected == 200:
+        if expected == HTTP_OK:
             data = json.loads(result["body"])
             assert data["locale"] == self.sessions[uid]
 
@@ -83,9 +91,11 @@ class SessionStateMachine(RuleBasedStateMachine):
             "/public/api/session/update",
             {"uid": uid, "locale": locale},
         )
-        expected = 200 if uid in self.sessions else 404
+        expected = (
+            HTTP_OK if uid in self.sessions else HTTP_NOT_FOUND
+        )
         assert result["status"] == expected
-        if expected == 200:
+        if expected == HTTP_OK:
             self.sessions[uid] = locale
 
     @rule(uid=st.integers(min_value=1, max_value=20))
@@ -96,7 +106,7 @@ class SessionStateMachine(RuleBasedStateMachine):
             "/public/api/session/prune",
             body={"uid": uid},
         )
-        assert result["status"] == 200
+        assert result["status"] == HTTP_OK
         data = json.loads(result["body"])
         expected = uid in self.sessions
         assert data["deleted"] == expected
