@@ -1,4 +1,4 @@
-﻿import json
+import json
 import tempfile
 from urllib.parse import urlencode
 
@@ -156,4 +156,3 @@ TestPromptStateMachine.settings = settings(
     stateful_step_count=20,
     deadline=None,
 )
-
